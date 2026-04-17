@@ -1,0 +1,400 @@
+#include "common.h"
+
+#include "comm_type.h"
+#include "comm_codec.h"
+#include <rga/rga.h>
+#include <rga/im2d.h>
+
+#include "codec2_process.h"
+#include "osd_if.h"
+#include "RgaProc.h"
+
+#include "snapshot.h"
+#include <rk_mpi_mb.h>
+#include "rkai_demo.h"
+
+RgaProc * rga_hd[2];
+
+static unsigned char *rgb_buff[MAX_STREAM_NUM];
+static CROP_RECT crop[] = {
+	{0, 0, 1280, 720},
+	{100, 100, 640, 480},
+	{100, 100, 640, 480},
+	{100, 100, 640, 480}
+};
+
+extern "C" int yuv_data_coming(int stream_index, void *mb); 
+extern "C" void app_relase_mb(void *mb);
+
+static nn_object_array_t ai_result;
+
+static void * ss_hd ;  //截图句柄
+
+
+
+//#define YUV_TO_RGB
+//#define RGB_SAVE_TO_FILE
+//#define YUV_SAVE_TO_FILE
+//#define	JPG_SAVE_TO_FILE
+//#define JPEG_OSD_TEST
+//#define TEST_AI_RESULT
+//#define MB_BLK_TEST	
+//#define TEST_AI_STRESS
+// #define RK_IVA_ENABLE
+
+#ifdef MB_BLK_TEST
+
+MB_POOL g_pool;
+MB_BLK g_mb;	
+
+
+#endif
+
+extern "C" void notify_ROI_changed(int channel_no)
+{
+	;
+}
+
+extern unsigned long GetTickCount(void)  ;
+//__attribute__((always_inline))  void printFps(char *title, int interval)
+#define  printFps(title, interval)										\
+{																		\
+    static unsigned long lasttime = 0;                                 \
+    static unsigned int count = 0;                                     \
+																	   \
+    unsigned long diff;                                                \
+																	   \
+    count++;                                                           \
+																	   \
+    if(lasttime == 0)                                                  \
+        goto exit__;                                                   \
+																	   \
+    diff = GetTickCount() - lasttime ;                                 \
+																	   \
+    if(diff > interval)                                                \
+    {                                                                  \
+		fprintf(stderr,"%s :", title);                                  \
+        fprintf (stderr, "++++++fps=%lu\n", count * 1000/diff);         \
+        lasttime = 0;                                                  \
+        count = 0;                                                     \
+																	   \
+    }                                                                  \
+    else                                                               \
+        goto exit1__ ;                                                 \
+																	   \
+																	   \
+exit__:                                                                \
+    lasttime = GetTickCount();                                         \
+    ;                                                                  \
+																	   \
+exit1__: 																\
+	;																	\
+}
+void comm_ai_test(void)
+{
+	usleep(60*1000);
+}
+
+extern "C" int comm_ai_process(int stream_index, void * mb, void *puser)
+{
+	static int count = 0;
+
+	if(stream_index == CAM0_STREAM_MAIN)
+	{
+		RgaProc * hd;
+		int w, h;
+		unsigned char * buff = NULL ;
+		bool ret = false;
+		printFps("AI frame",10000);
+#ifdef TEST_AI_STRESS		
+		comm_ai_test();
+#endif
+		//1. 格式转换, yuv -> crop & rgb
+#ifdef YUV_TO_RGB		
+//		os_dbg("CAM%d_STREAM process...", stream_index);
+		hd = rga_hd[app_get_camid(stream_index)];	
+		if(hd == NULL)
+		{
+			
+			app_get_resolution(stream_index, &w, &h, NULL);
+			rga_hd[app_get_camid(stream_index)] = new RgaProc(w, h, RK_FMT_YUV420SP);
+			hd = rga_hd[app_get_camid(stream_index)];
+		}
+//		if(rgb_buff[CAM0_STREAM_MAIN] == NULL)
+		{
+			int w,h;
+			app_get_resolution(stream_index, &w, &h, NULL);
+//			rgb_buff[CAM0_STREAM_MAIN] = (unsigned char *)malloc(w * h * 3);
+		}
+//		buff = rgb_buff[CAM0_STREAM_MAIN];
+		if(hd /*&& buff*/)
+		{
+//			ret = hd->rga_proc_covert_rgb((VIDEO_FRAME_INFO_S *)mb, &crop[stream_index], &buff, true);
+			ret = hd->rga_proc_scale_rgb((VIDEO_FRAME_INFO_S *)mb, crop[stream_index].w,crop[stream_index].h, &buff, true); //RGB
+//			ret = hd->rga_proc_scale_rgb((VIDEO_FRAME_INFO_S *)mb, crop[stream_index].w,crop[stream_index].h, &buff, false);//BGR
+
+			if(ret == false) 
+				os_dbg("rga convert fail!!!");
+//			else os_dbg("convert ok...");
+		}
+//	   os_dbg("rga_proc_covert_rgb return = %d", ret);
+#endif
+
+
+       if(ret)
+       {
+		   
+		   if((count % 10) == 0)
+		   {
+			    char fn[80] ;
+			   unsigned char* tmp_buff = NULL;
+#ifdef YUV_SAVE_TO_FILE		   
+			   VIDEO_FRAME_INFO_S *stViFrame = (VIDEO_FRAME_INFO_S *)mb;
+			   unsigned char*nv12_buff  = (unsigned char*)RK_MPI_MB_Handle2VirAddr(stViFrame->stVFrame.pMbBlk);
+			   sprintf(fn, "/data/media/%d.yuv", count);
+			   os_dbg("%dx%d ==== v %dx%d ",stViFrame->stVFrame.u32Width, stViFrame->stVFrame.u32Height,stViFrame->stVFrame.u32VirWidth,stViFrame->stVFrame.u32VirHeight);
+  
+			   FILE *fp_yuv = fopen(fn, "wb");
+			   if(fp_yuv && nv12_buff)
+			   {
+					fwrite(nv12_buff, 1, w*h*3/2, fp_yuv);
+					fflush(fp_yuv);
+					fclose(fp_yuv);
+			   }			   
+#endif
+#ifdef RGB_SAVE_TO_FILE
+			   sprintf(fn, "/data/media/%d.rgb", count);
+				FILE *fp_rgb = fopen(fn, "wb");
+			   if(fp_rgb && buff)
+			   {
+#ifdef 	MB_BLK_TEST
+					tmp_buff = (unsigned char*)RK_MPI_MB_Handle2VirAddr(g_mb);
+					memcpy(tmp_buff,buff,crop[stream_index].w * crop[stream_index].h * 3);
+					fwrite(tmp_buff, 1, crop[stream_index].w * crop[stream_index].h * 3, fp_rgb);
+#else
+					fwrite(buff, 1, crop[stream_index].w * crop[stream_index].h * 3, fp_rgb);
+#endif
+					fflush(fp_rgb);
+					fclose(fp_rgb);
+			   }	
+#endif	
+#ifdef JPG_SAVE_TO_FILE
+			   if(ss_hd == NULL)
+			   	{
+				   ss_hd = snapshot_init(crop[stream_index].w,crop[stream_index].h, 15, RK_FMT_RGB888);
+					snapshot_set_quality(ss_hd,50);
+			   }
+#ifdef 	MB_BLK_TEST			   
+			   if(ss_hd && tmp_buff)
+			   {
+//				   char fn[128];
+				   sprintf(fn, "/data/media/picture/ss_%d.jpg", count);
+				   //直接在yuv上画框再抓图
+				   // 先目标画框
+				   if(g_mb)
+				   {
+				  	 	snapshot_run_once(ss_hd, tmp_buff, fn);
+				   }
+				   os_dbg("capture: %s ",fn);
+			   }
+#else	
+			   if(ss_hd && buff)
+			   {
+//				   char fn[128];
+				   sprintf(fn, "/data/media/picture/ss_%d.jpg", count);
+				   //直接在yuv上画框再抓图
+				   // 先目标画框
+				   snapshot_run_once(ss_hd, buff, fn);
+				   os_dbg("capture: %s ",fn);
+			   }				
+#endif
+#endif
+		   }
+	   }
+
+
+#ifdef JPEG_OSD_TEST
+		if(ss_hd == NULL)
+			ss_hd = app_capture_get_handle(CAM0_STREAM_MAIN);
+		if(ss_hd && ((count % 20) == 0))
+		{
+			char fn[70];
+			char osd_str[50];
+			Osd_If * osd_hd = (Osd_If*)snapshot_get_osd_hd(ss_hd);
+			unsigned char *nv12_data = (unsigned char*)RK_MPI_MB_Handle2VirAddr(((VIDEO_FRAME_INFO_S*)mb)->stVFrame.pMbBlk);
+			osd_hd->set_font_bg_color(FONT_BG_COLOR_1);
+			sprintf(osd_str, "snap test %d....", count);
+			//if(osd_hd)osd_hd->SetOsdTip(0, 300, 300, osd_str, 0xff0000, 50, true);
+			
+			snapshot_yuv_drawSwOsd(ss_hd, nv12_data, 300, 300, osd_str,50, 0xff0000);
+			snapshot_yuv_draw_line(ss_hd, nv12_data, 100, 100,  400, 100, 2, 0xff);
+			snapshot_yuv_drawBox(ss_hd, nv12_data, 120, 120,  100, 100,  2, 0x00ff00);
+			
+			os_dbg("+++++++++++++++++++++++++++++");
+			
+			sprintf(fn, "/data/media/ss_%d.jpg", count);
+			snapshot_run_once(ss_hd, nv12_data, fn);
+			os_dbg("-----------------------------");
+		}
+#endif
+	
+		//2. 这里开始AI处理,
+#ifdef RK_IVA_ENABLE
+		rmm_process_rgb(buff, crop[stream_index].w, crop[stream_index].h);
+#endif		
+		
+		//3. 后处理，比如根据结果，画osd 等。
+#ifdef TEST_AI_RESULT 
+		if((count % 2) == 0) // 注意： 坐标没有变化的话，不需要重复更新。
+		{
+			int i;
+			ai_result.count = 8;
+			ai_result.object[0].box.left = 100;
+			ai_result.object[0].box.right = 180;
+			ai_result.object[0].box.top = 100;
+			ai_result.object[0].box.bottom = 180;
+			ai_result.object[0].color = 0xffffff;
+			ai_result.object[0].id = 1;
+
+			for(i = 1; i <  ai_result.count; i++)
+			{
+				ai_result.object[i].box.left = ai_result.object[i-1].box.left + 85;
+				ai_result.object[i].box.right = ai_result.object[i-1].box.right + 85;
+				ai_result.object[i].box.top = 100;
+				ai_result.object[i].box.bottom = 180;
+				ai_result.object[i].id = 1000 + 1;
+				if(i < 4)
+					ai_result.object[i].color = 0xff0000;
+				else if ( i < 6 ) 
+					ai_result.object[i].color = 0x00ff00;
+				else if ( i < 8 )
+					ai_result.object[i].color = 0x0000ff;
+			}
+			
+			// AI 分辨率可能与 stream main/sub 分辨率不同，需要转换坐标。
+			int target_stream = app_get_main_index_from_ai(stream_index);
+			app_covert_nn_coordinate(stream_index, target_stream, &ai_result);
+
+			ret = app_set_nn_obj(target_stream, &ai_result);  //表示rtsp 的主流
+			//os_dbg("app_set_nn_obj ret = %d", ret);
+
+			//测试YUV画线
+			avcodec_osd_line_t oline;
+			memset(&oline, 0, sizeof(oline));
+			oline.index = 3;
+			oline.enable = 1;
+			oline.x = 12; oline.y = 12;
+			oline.x2 = 1070; oline.y2 = 1070;
+			oline.thick = 2;
+			oline.color = 0xff0000;
+			ret = app_set_stream_sw_osd_line(CAM0_STREAM_MAIN, &oline);
+			//os_dbg("0ret = %d", ret);
+
+			oline.index = 4;
+			oline.enable = 1;
+			oline.line_type = 2; //1. left arrow; 2, right arrow
+			oline.x = 20; oline.y = 520;
+			oline.x2 = 1020; oline.y2 = 20;
+			oline.thick = 2;
+			oline.color = 0xff;
+			ret = app_set_stream_sw_osd_line(CAM0_STREAM_MAIN, &oline);
+			//os_dbg("ret = %d", ret);
+			
+			// 画框
+			avcodec_osd_rect_t rect;
+			rect.index = 5;
+			rect.enable = 1;
+			rect.x = 300; rect.y = 300;
+			rect.w = 300; rect.h = 300;
+			rect.thick = 2;
+			rect.color = 0x00ffff;
+			app_set_stream_sw_osd_rect(CAM0_STREAM_MAIN, &rect);
+			
+			
+			// draw bitmap
+			avcodec_osd_bitmap_t bm;
+			int w = 56, h = 50;
+			unsigned char buff[w* h/8];
+			memset(buff, 0, w*h/8);    // 0 --- 透明; 1 ---- 画点，color = bmp.color
+			memset(buff, 0xff, w/8);
+			memset(buff+(w-1)*h/8, 0xff, w/8);
+			
+			bm.enable = 1;
+			bm.index = 9;
+			bm.x = 200;
+			bm.y = 200;
+			bm.w = w;
+			bm.h = h;
+			bm.color = 0xff;
+			bm.data = buff;
+			ret = app_set_stream_sw_osd_bitmap(CAM0_STREAM_MAIN, &bm);
+			//os_dbg("ret = %d", ret); 	
+			
+			// draw string
+			avcodec_osd_str_t str_osd;
+			str_osd.index = 10;
+			str_osd.enable = ((count/5) % 2);
+			str_osd.x = 200;
+			str_osd.y = 500;
+			str_osd.font_size = 30;
+			str_osd.color = 0x00ffff;
+			strcpy(str_osd.data, "soft osd");
+			app_set_stream_sw_osd_str(CAM0_STREAM_MAIN, &str_osd);			
+		}
+#endif		
+	}
+	else
+	{
+//		os_dbg("not process stream(%d)!!!",  stream_index);
+	}
+	count ++;
+	app_relase_mb(mb);// AI完成后释放mb	
+
+	return OS_SUCCESS;
+}
+
+extern "C" int comm_ai_init()
+{
+	int ret;
+	os_dbg(" enter");
+#ifdef 	MB_BLK_TEST	
+
+	int dst_width = UPALIGNTO(crop[CAM0_STREAM_MAIN].w, 4);
+	int dst_heigh = UPALIGNTO(crop[CAM0_STREAM_MAIN].h, 4);
+	
+	int buffer_size = dst_width * dst_heigh * 3;
+	
+	MB_POOL_CONFIG_S pstMbPoolCfg;
+	memset(&pstMbPoolCfg, 0, sizeof(MB_POOL_CONFIG_S));
+	pstMbPoolCfg.u64MBSize   = buffer_size;
+	pstMbPoolCfg.u32MBCnt    = 1;
+	pstMbPoolCfg.bPreAlloc   = RK_TRUE;
+//	pstMbPoolCfg.enRemapMode = (MB_REMAP_MODE_E)MB_REMAP_MODE_CACHED;
+	pstMbPoolCfg.enAllocType = (MB_ALLOC_TYPE_E)MB_ALLOC_TYPE_DMA;
+	pstMbPoolCfg.enDmaType = MB_DMA_TYPE_CMA;
+
+	g_pool = RK_MPI_MB_CreatePool(&pstMbPoolCfg);
+	if (g_pool == MB_INVALID_POOLID) {
+		g_pool = 0;
+		printf("%s: RK_MPI_MB_CreatePool fail!!!\n", __FUNCTION__);
+	}
+	if(g_pool)
+	{
+		g_mb = RK_MPI_MB_GetMB(g_pool, buffer_size, RK_FALSE);
+	}
+#endif	
+	//. set para
+	app_set_ai_process_para(CAM0_STREAM_MAIN, comm_ai_process,   1, NULL);
+
+		
+#ifdef RK_IVA_ENABLE
+	rmm_yuv_handle_init();
+#endif		
+
+//	start_AlarmProcess();
+	os_dbg(" exit");
+	return OS_SUCCESS;
+}
+
+
+
