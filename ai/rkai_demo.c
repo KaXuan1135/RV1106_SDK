@@ -295,35 +295,34 @@ int rmm_process_rgb(void *buff, int w, int h)
     
     // ROCKIVA_PushFrame(iva_ctx.handle, &IvaImage, NULL);
 
-    printf("%dx%d RGB data at %p\n", w, h, buff);
-    printf("Replace with /userdata/image/bus.jpg\n");
+    printf("rmm_process_rgb called with %dx%d RGB data at %p\n", w, h, buff);
 
-    int width, height, channels;
-    
-    // 强制加载为 3 通道 (RGB)
-    // stbi_load 会自动处理 JPG 的解码
-    unsigned char *buffer = stbi_load("/userdata/image/bus.jpg", &width, &height, &channels, 3);
-    
-    if (buffer == NULL) {
-        printf("无法读取图片: %s\n", "/userdata/image/bus.jpg");
-        return -1;
-    }
-
-    printf("图片尺寸: %d x %d, 原始通道: %d\n", width, height, channels);
-
-    YOLO_Box_t results[20];
-    int num = yolo_detect(yolo_ctx.handle, width, height, buffer, results, 20);
-    printf("[YOLO] Detected %d objects\n", num);
-
-    stbi_image_free(buffer);
     return 0;
 }
 
 
 void rmm_yuv_handle_init()
 {
-    yolo_ctx.handle = yolo_init("/userdata/model/yolo26n_u8_rv1106.rknn", 0.25f);
+    // yolo_ctx.handle = yolo_init("/userdata/model/yolo26n_u8_rv1106.rknn", 0.25f);
 
+    // int width, height, channels;
+    
+    // // 强制加载为 3 通道 (RGB)
+    // // stbi_load 会自动处理 JPG 的解码
+    // unsigned char *buffer = stbi_load("/userdata/image/bus.jpg", &width, &height, &channels, 3);
+    
+    // if (buffer == NULL) {
+    //     printf("无法读取图片: %s\n", "/userdata/image/bus.jpg");
+    //     return -1;
+    // }
+
+    // printf("图片尺寸: %d x %d, 原始通道: %d\n", width, height, channels);
+
+    // YOLO_Box_t results[20];
+    // int num = yolo_detect(yolo_ctx.handle, width, height, buffer, results, 20);
+    // printf("[YOLO] Detected %d objects\n", num);
+
+    // stbi_image_free(buffer);
 
     // for (int i = 0; i < num; i++) {
     //     printf("Detected Object [%d]: Score: %f, Box: [%f, %f, %f, %f]\n", 
@@ -345,13 +344,13 @@ void rmm_yuv_handle_init()
 
     // return;
 
-    int iStreamType = 0;
+    // int iStreamType = 0;
 
-    int w, h;
+    // int w, h;
     // app_get_resolution(CAM0_STREAM_MAIN, &w, &h, NULL);
-    app_get_resolution(iStreamType, &w, &h, NULL);
+    // app_get_resolution(iStreamType, &w, &h, NULL);
 
-    Log("#####rmm_yuv_handle#####w=%d, h=%d", w, h);
+    // Log("#####rmm_yuv_handle#####w=%d, h=%d", w, h);
     
 //    IvaAppContext iva_ctx;
     // memset(&iva_ctx, 0, sizeof(IvaAppContext));
@@ -368,7 +367,7 @@ void rmm_yuv_handle_init()
     //     return;
     // }
 
-    Log("rmm_get_yuv_cb strat....");
+    // Log("rmm_get_yuv_cb strat....");
     //app_set_cb_yuv_data(iStreamType, rmm_get_yuv_cb);
 }
 

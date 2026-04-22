@@ -5,8 +5,6 @@
 #include <iomanip>
 #include <vector>
 
-
-
 typedef struct {
 
     int width;
@@ -165,6 +163,8 @@ struct RKNNResult {
  * @return int -1: error; > 0: Read data size
  */
 int readDataFromFile(const char *path, char **out_data);
+
+int clamp(int val, int min, int max);
 
 void letterbox(
     const image_t &src, 

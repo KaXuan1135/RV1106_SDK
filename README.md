@@ -1,7 +1,8 @@
 source env.sh
 cd build
-make clean
-make demo
+make clean && make demo
+/
+make clean && make yolo
 
 under build, there will be `rv1106_ipc`, move it to rv1106 `/userdata/rv1106_ipc`
 

@@ -66,49 +66,11 @@ public:
      * @brief Print model metadata
      */
     void info();
-    
-    /**
-     * @brief Model input width getter
-     * @return Model input width
-     */
-    int getInputWidth() const {
-        return modelMetadata.model_width;
-    }
-
-    /**
-     * @brief Model input height getter
-     * @return Model input height
-     */
-    int getInputHeight() const {
-        return modelMetadata.model_height;
-    }
-
-    /**
-     * @brief Set Model Metadata want_float
-     */
-    void setOutputWantFloat(bool val) {
-        modelMetadata.output_want_float = val;
-    }
 
 protected:
     rknn_model_metadata modelMetadata;
     letterbox_t letterboxInfo;
     bool modelInitialized = false;
-
-    /**
-     * @brief RKNN inference.
-     * @param inputs [in] Model input.
-     * @param outputs [out] Model output.
-     * @return Return code
-     */
-    int infer(rknn_input inputs[], rknn_output outputs[]);
-
-    /**
-     * @brief Release rknn_output.
-     * @param outputs The rknn_output to be released.
-     * @return Return code.
-     */
-    int releaseOutputs(rknn_output* outputs);
 
     /**
      * @brief Release RKNN model.

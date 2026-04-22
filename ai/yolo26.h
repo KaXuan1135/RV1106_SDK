@@ -6,6 +6,7 @@
 #include <vector>
 #include "misc.h"
 #include "rknn_model.h"
+
 class RKNNYOLO26Detection : public RKNNModel
 {
 public:
@@ -23,14 +24,13 @@ public:
 
 private:
     int numClasses_ = 0;
-    int numBoxes_ = 0;
     float confThreshold_ = 0.2;
     
     std::vector<rknn_tensor_mem*> input_mems;
     std::vector<rknn_tensor_mem*> output_mems;
 
     void preprocess(const image_t& image, image_t& out_img);
-    // void postprocess(const cv::Mat& image, void* outputs, void* result_out) override;
+    void postprocess(std::vector<RKNNResult>& results);
 };
 
 #endif // __cplusplus

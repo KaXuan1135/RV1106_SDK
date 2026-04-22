@@ -158,49 +158,6 @@ int RKNNModel::setCoreMask(rknn_core_mask coreMask)
     return 0;
 } 
 
-int RKNNModel::infer(rknn_input inputs[], rknn_output outputs[])
-{
-    int ret = -1;
-
-    // Set inputs
-    // ret = rknn_inputs_set(modelMetadata.rknn_ctx, modelMetadata.io_num.n_input, inputs);
-    // if (ret < 0)
-    // {
-    //     std::cerr << "rknn_input_set fail :: " << get_error_message(ret) << std::endl;
-    //     return ret;
-    // }
-
-    // Run inference
-
-    ret = rknn_run(modelMetadata.rknn_ctx, nullptr);
-    if (ret < 0)
-    {
-        std::cerr << "rknn_run fail :: " << get_error_message(ret) << std::endl;
-        return ret;
-    }
-
-    // Get outputs
-    // for (int i = 0; i < modelMetadata.io_num.n_output; i++)
-    // {
-    //     outputs[i].index = i;
-    //     outputs[i].want_float = modelMetadata.output_want_float;
-    // }
-    // ret = rknn_outputs_get(modelMetadata.rknn_ctx, modelMetadata.io_num.n_output, outputs, NULL);
-    // if (ret < 0)
-    // {
-    //     std::cerr << "rknn_outputs_get fail :: " << get_error_message(ret) << std::endl;
-    // }
-
-    return ret;
-}
-
-
-int RKNNModel::releaseOutputs(rknn_output* outputs)
-{
-    return rknn_outputs_release(modelMetadata.rknn_ctx, modelMetadata.io_num.n_output, outputs);
-}
-
-
 int RKNNModel::release()
 {
     if (modelMetadata.input_attrs != NULL)
