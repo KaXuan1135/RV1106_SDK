@@ -40,12 +40,8 @@ int RKNNYOLO26Detection::process(const image_t& image, std::vector<RKNNResult>& 
     }
 
     image_t dup_image;
-    dup_image.height = image.height;
-
-    // Multiple of 16
-    int aligned_width = (image.width + 15) & ~15;
-    dup_image.width = aligned_width;
-
+    int aligned_width = (image.width + 15) & ~15; // Multiple of 16
+    
     // Why not intialize it one time only? TODO after integrate into RV1106_IPC, that input size is fixed
     rknn_tensor_mem* rga_mem = rknn_create_mem(modelMetadata.rknn_ctx, aligned_width * image.height * 3);
 
@@ -55,11 +51,12 @@ int RKNNYOLO26Detection::process(const image_t& image, std::vector<RKNNResult>& 
     } else {
         for(int i=0; i<image.height; i++) {
             memcpy((uint8_t*)rga_mem->virt_addr + (i * aligned_width * 3), 
-                image.data + (i * image.width * 3), 
-                image.width * 3);
+                image.data + (i * image.width * 3), image.width * 3);
         }
         dup_image.data = (unsigned char*)rga_mem->virt_addr;
     }
+    dup_image.width = aligned_width;
+    dup_image.height = image.height;
 
     image_t finalImage;
     finalImage.width = modelMetadata.model_width;

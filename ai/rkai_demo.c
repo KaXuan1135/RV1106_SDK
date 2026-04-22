@@ -296,6 +296,9 @@ int rmm_process_rgb(void *buff, int w, int h)
     // ROCKIVA_PushFrame(iva_ctx.handle, &IvaImage, NULL);
 
     printf("rmm_process_rgb called with %dx%d RGB data at %p\n", w, h, buff);
+    YOLO_Box_t results[20];
+    int num = yolo_detect(yolo_ctx.handle, w, h, (unsigned char *)buff, results, 20);
+    printf("[YOLO] Detected %d objects\n", num);
 
     return 0;
 }
@@ -303,7 +306,7 @@ int rmm_process_rgb(void *buff, int w, int h)
 
 void rmm_yuv_handle_init()
 {
-    // yolo_ctx.handle = yolo_init("/userdata/model/yolo26n_u8_rv1106.rknn", 0.25f);
+    yolo_ctx.handle = yolo_init("/userdata/model/yolo26n_u8_rv1106.rknn", 0.25f);
 
     // int width, height, channels;
     
